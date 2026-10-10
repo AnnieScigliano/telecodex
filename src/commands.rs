@@ -28,6 +28,7 @@ pub enum BridgeCommand {
     Sessions,
     History,
     Status,
+    Icon,
     Stop,
     RetryTurn { turn_id: i64 },
     Allow { user_id: i64 },
@@ -111,6 +112,7 @@ pub fn parse_command(command: &str, args: &str, original_text: &str) -> Result<P
         "/sessions" => BridgeCommand::Sessions,
         "/history" => BridgeCommand::History,
         "/status" => BridgeCommand::Status,
+        "/icon" => BridgeCommand::Icon,
         "/stop" => BridgeCommand::Stop,
         "/retry" | "/retry_turn" | "/retry-turn" => BridgeCommand::RetryTurn {
             turn_id: parse_i64_arg(args, "/retry <turn_id>")?,
@@ -259,6 +261,7 @@ pub fn default_bot_commands() -> Vec<BotCommand> {
     vec![
         bot_command("help", "Show Codex help"),
         bot_command("status", "Show status for this session"),
+        bot_command("icon", "Choose an icon for this Telegram topic"),
         bot_command("login", "Log in to Codex with device code"),
         bot_command("logout", "Remove stored Codex credentials"),
         bot_command("new", "Start a fresh Codex session in this topic"),
@@ -539,6 +542,7 @@ mod tests {
         let cases = [
             ("/help", ParsedInputKind::Forward),
             ("/status", ParsedInputKind::Bridge),
+            ("/icon", ParsedInputKind::Bridge),
             ("/login", ParsedInputKind::Bridge),
             ("/logout", ParsedInputKind::Bridge),
             ("/new test", ParsedInputKind::Bridge),
