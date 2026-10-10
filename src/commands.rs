@@ -81,6 +81,7 @@ const UNSUPPORTED_COMMANDS: &[&str] = &[
     "/terminal-setup",
 ];
 
+/// Classify slash commands as bridge operations, native input or unsupported actions.
 pub fn parse_command(command: &str, args: &str, original_text: &str) -> Result<ParsedInput> {
     if FORWARDED_COMMANDS.contains(&command) {
         return Ok(ParsedInput::Forward(original_text.trim().to_string()));
@@ -257,6 +258,7 @@ pub fn command_help(command: &str, args: &str) -> Option<CommandHelp> {
     }
 }
 
+/// Return the Telegram command menu, including the bridge-only topic icon picker.
 pub fn default_bot_commands() -> Vec<BotCommand> {
     vec![
         bot_command("help", "Show Codex help"),
@@ -538,6 +540,7 @@ mod tests {
     }
 
     #[test]
+    /// Every advertised menu command must parse as its intended input kind.
     fn default_bot_commands_are_parseable() {
         let cases = [
             ("/help", ParsedInputKind::Forward),

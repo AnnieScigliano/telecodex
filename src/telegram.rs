@@ -277,11 +277,16 @@ impl TelegramClient {
         .await
     }
 
+    /// Fetch Telegram's current catalog of custom emoji allowed for topic icons.
     pub async fn get_forum_topic_icon_stickers(&self) -> Result<Vec<TopicIconSticker>> {
         self.post::<(), Vec<TopicIconSticker>>("getForumTopicIconStickers", None)
             .await
     }
 
+    /// Set a topic's custom emoji icon without changing its name.
+    ///
+    /// An empty ID removes the custom icon. Telegram does not support changing the
+    /// General topic icon or restoring a topic's original default bubble color.
     pub async fn edit_forum_topic_icon(
         &self,
         chat_id: i64,
@@ -755,6 +760,7 @@ pub struct ForumTopic {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+/// Catalog entry whose optional fields are validated before display in the picker.
 pub struct TopicIconSticker {
     pub emoji: Option<String>,
     pub custom_emoji_id: Option<String>,

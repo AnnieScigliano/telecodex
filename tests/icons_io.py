@@ -15,7 +15,27 @@ import threading
 import time
 
 
+def stop_bridge(process, timeout=8):
+    """Interrupt and reap the bridge, forcing shutdown if it exceeds the timeout.
+
+    Check stderr for the fixture token after either shutdown path, and preserve
+    a timeout as a test failure even when the forced shutdown succeeds.
+    """
+    process.send_signal(signal.SIGINT)
+    timeout_error = None
+    try:
+        _, error = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        timeout_error = exc
+        process.kill()
+        _, error = process.communicate(timeout=timeout)
+    assert 'synthetic-icon-token' not in error
+    if timeout_error is not None:
+        raise timeout_error
+
+
 def main(binary):
+    """Exercise icon commands against a loopback Telegram API and temporary DB."""
     with tempfile.TemporaryDirectory(prefix='telecodex-icons-') as directory:
         root = pathlib.Path(directory)
         updates, calls = collections.deque(), []
@@ -28,6 +48,7 @@ def main(binary):
 
         class Telegram(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
+                """Record API requests and return catalog, message or error fixtures."""
                 nonlocal message_id
                 payload = json.loads(self.rfile.read(int(self.headers.get('Content-Length', '0'))) or b'{}')
                 method = self.path.rsplit('/', 1)[-1]
@@ -66,6 +87,7 @@ def main(binary):
                     pass
 
             def log_message(self, *_):
+                """Suppress fixture HTTP logs, which contain the synthetic bot token."""
                 pass
 
         server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Telegram)
@@ -89,17 +111,14 @@ import_desktop_history=false
         process = None
 
         def start():
+            """Start the bridge with isolated state and a model-call sentinel."""
             return subprocess.Popen([binary, str(config)], cwd=root, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, text=True,
                                     env={'HOME': str(root), 'CODEX_HOME': str(root / 'codex-home'),
                                          'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'RUST_LOG': 'warn'})
 
-        def stop():
-            process.send_signal(signal.SIGINT)
-            _, error = process.communicate(timeout=8)
-            assert 'synthetic-icon-token' not in error
-
         def admit(*, topic=7, user=100, callback=None, chat=100):
+            """Queue an /icon message or callback with the requested identity."""
             nonlocal sequence
             sequence += 1
             sender = {'id': user, 'is_bot': False, 'first_name': 'Fixture'}
@@ -116,6 +135,7 @@ import_desktop_history=false
                 updates.append(update)
 
         def wait(method, predicate=lambda _: True, after=0):
+            """Wait for a matching API call, failing on bridge exit or deadline."""
             deadline = time.monotonic() + 12
             while time.monotonic() < deadline:
                 with lock:
@@ -128,6 +148,7 @@ import_desktop_history=false
             raise AssertionError(f'timed out waiting for {method}')
 
         def open_picker():
+            """Open a picker and return its message binding and keyboard buttons."""
             after = len(calls)
             admit()
             _, payload = wait('sendMessage', lambda p: bool(p.get('reply_markup')), after)
@@ -137,6 +158,7 @@ import_desktop_history=false
             return message, buttons
 
         def mutations():
+            """Snapshot topic-edit requests for assertions about actual effects."""
             with lock:
                 return [payload for method, payload in calls if method == 'editForumTopic']
 
@@ -190,7 +212,7 @@ import_desktop_history=false
             wait('editMessageText', lambda p: 'cancelled' in p['text'], after)
             assert len(mutations()) == count
             message, buttons = open_picker()
-            stop()
+            stop_bridge(process)
             process = start()
             after = len(calls)
             admit(callback=(message, buttons[0][0]['callback_data']))
@@ -224,10 +246,12 @@ import_desktop_history=false
             print('PASS: catalog, pagination, ownership, topic/message binding, invalid callbacks, '
                   'selection, reset, cancellation, duplicates, restart, General/root, API failure; no model calls')
         finally:
-            if process and process.poll() is None:
-                stop()
-            server.shutdown()
-            server.server_close()
+            try:
+                if process and process.poll() is None:
+                    stop_bridge(process)
+            finally:
+                server.shutdown()
+                server.server_close()
 
 
 if __name__ == '__main__':

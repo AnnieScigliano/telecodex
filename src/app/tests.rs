@@ -114,6 +114,7 @@ fn sample_config(db_path: PathBuf, default_cwd: PathBuf) -> Config {
     }
 }
 
+/// Build an isolated app fixture with a temporary SQLite store and empty picker state.
 fn sample_app() -> (App, NamedTempFile) {
     let db = NamedTempFile::new().unwrap();
     let config = sample_config(db.path().to_path_buf(), sample_workspace());
@@ -1571,6 +1572,7 @@ async fn upload_failure_marks_turn_failed_and_cleanup_still_runs() {
 }
 
 #[test]
+/// A stale binding should move to the latest active native thread for its workspace.
 fn rebinds_stale_session_to_latest_active_thread_for_same_cwd() {
     let _lock = codex_home_test_lock().lock().unwrap();
     let codex_home = tempfile::tempdir().unwrap();
@@ -1647,6 +1649,7 @@ fn rebinds_stale_session_to_latest_active_thread_for_same_cwd() {
 }
 
 #[test]
+/// An archived thread stays unbound when no active workspace replacement exists.
 fn keeps_truly_archived_session_unbound_when_no_active_replacement_exists() {
     let _lock = codex_home_test_lock().lock().unwrap();
     let codex_home = tempfile::tempdir().unwrap();

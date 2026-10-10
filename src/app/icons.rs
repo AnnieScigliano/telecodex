@@ -1,3 +1,5 @@
+//! Topic-icon picker state, keyboards and callbacks without Codex/model calls.
+
 use super::*;
 use crate::telegram::TopicIconSticker;
 
@@ -8,6 +10,7 @@ const MAX_PICKERS: usize = 64;
 const PREFIX: &str = "topic_icon:";
 
 #[derive(Clone)]
+/// An expiring picker bound to one requester, topic and Telegram message.
 pub(super) struct PendingIconPicker {
     requester: i64,
     key: SessionKey,
@@ -17,6 +20,7 @@ pub(super) struct PendingIconPicker {
 }
 
 impl PendingIconPicker {
+    /// Require the original user, chat, topic and message within the picker TTL.
     fn matches(&self, message: &Message, requester: i64) -> bool {
         self.requester == requester
             && self.key == SessionKey::new(message.chat.id, message.message_thread_id)
@@ -25,6 +29,7 @@ impl PendingIconPicker {
     }
 }
 
+/// Encode a picker action with its token in an inline keyboard button.
 fn button(text: &str, token: &str, action: &str) -> InlineKeyboardButton {
     InlineKeyboardButton {
         text: text.to_string(),
@@ -33,6 +38,7 @@ fn button(text: &str, token: &str, action: &str) -> InlineKeyboardButton {
     }
 }
 
+/// Render a catalog page and its controls, returning `None` for invalid pages.
 fn picker_page(
     icons: &[TopicIconSticker],
     token: &str,
@@ -87,6 +93,10 @@ fn picker_page(
 }
 
 impl App {
+    /// Fetch Telegram's catalog and register a picker after confirming its message.
+    ///
+    /// Root chats and the General topic receive a status message instead. Picker
+    /// state stays in memory, so restarting the bridge invalidates old callbacks.
     pub(super) async fn show_topic_icon_picker(
         &self,
         message: &Message,
@@ -176,6 +186,10 @@ impl App {
         Ok(())
     }
 
+    /// Consume icon callbacks after validating ownership, binding and expiration.
+    ///
+    /// Return `false` for other callback prefixes. Close selections before editing
+    /// the topic so retries cannot repeat effects; page changes keep the picker open.
     pub(super) async fn handle_icon_callback(
         &self,
         message: &Message,
@@ -274,6 +288,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Expiration must invalidate an otherwise matching picker binding.
     fn an_expired_picker_cannot_authorize_an_icon_change() {
         let message: Message = serde_json::from_value(serde_json::json!({
             "message_id": 50, "message_thread_id": 7,

@@ -203,6 +203,7 @@ impl App {
     const HISTORY_PAGE_CACHE_MAX_ENTRIES: usize = 64;
     const HISTORY_PAGE_CACHE_TTL_SECONDS: u64 = 300;
 
+    /// Initialize Telegram identity, persistent sessions and in-memory interaction state.
     pub async fn bootstrap(config: Config) -> Result<Self> {
         let token = config.telegram.resolve_token()?;
         let telegram = TelegramClient::new(token, config.telegram.api_base.clone());
@@ -434,6 +435,7 @@ impl App {
         Ok(())
     }
 
+    /// Route allowed users' callbacks to the matching picker, approval or history handler.
     async fn process_callback_query(&self, callback: crate::telegram::CallbackQuery) -> Result<()> {
         let Some(message) = callback.message else {
             return Ok(());
@@ -635,6 +637,7 @@ impl App {
         Ok(true)
     }
 
+    /// Execute bridge commands or forward native input for the selected topic session.
     async fn handle_command(
         &self,
         user: &crate::models::UserRecord,
